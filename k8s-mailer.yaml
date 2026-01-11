@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bulk-email-job
+  namespace: nginx
+spec:
+  template:
+    spec:
+      containers:
+      - name: mailer
+        image: python:3.9-slim
+        command: ["python3", "-c"]
+        args:
+        - |
+          import smtplib, os
+          from email.message import EmailMessage
+          
+          # 1. Your list of friends
+          friends = ["tejaspatiloppo@gmail.com", "onkarlonkar018@gmail.com", "shreyasshejwal11@gmail.com"]
+          
+          # 2. Setup the connection to Google's Mail Server
+          try:
+              with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+                  # Grab username/password from the Environment Variables
+                  smtp.login(os.getenv('USER'), os.getenv('PASS'))
+                  
+                  for email in friends:
+                      msg = EmailMessage()
+                      msg.set_content(f"Happy New Year 2026! This is an automated message from my Kubernetes Cluster in Saswad. 🚀")
+                      msg['Subject'] = 'New Year Greetings!'
+                      msg['From'] = os.getenv('USER')
+                      msg['To'] = email
+                      
+                      smtp.send_message(msg)
+                      print(f"Successfully sent to {email}")
+          except Exception as e:
+              print(f"Error occurred: {e}")
+              
+        env:
+        # This part 'injects' your Secret into the container as Environment Variables
+        - name: USER
+          valueFrom:
+            secretKeyRef:
+              name: email-creds
+              key: username
+        - name: PASS
+          valueFrom:
+            secretKeyRef:
+              name: email-creds
+              key: password
+      restartPolicy: Never
